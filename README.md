@@ -13,11 +13,11 @@ This content is based off of the work done by Charles Frasch. Charles' CppCon 20
 
 ### What is SPSC FIFO?
 
-SPSC (Single Producer, Single Consumer) refers to the idea that a system has only two parties: a single producer that is producing and writing some abitrary content in to the system, and a single consumer that's consuming and reading that content from the system.
+SPSC (Single Producer, Single Consumer) refers to a system that has only two active parties: a single producer that is producing and writing some abitrary content in to the system, and a single consumer that's consuming and reading that content from the system. At first, this seems like an arbitrary constraint to put on any given system, but in practice these constraints allow us to design efficient data exchange interfaces.
 
-An SPSC FIFO... to-do
+An SPSC FIFO is a First-In-First-Out data structure - such as a queue - built with SPSC in mind. This means that for a queue, only one party - the Producer - will ever `push()` items in, and only one party - the Consumer - will `pop()` items out. A Producer/Consumer in this context could be a system module, process, or application thread.
 
-Finally, a lock-free SPSC FIFO... to-do
+Finally, a lock-free SPSC FIFO refers to an SPSC FIFO data structure that can be used in a multithreaded context without locking. In reality it's not realistic to prevent all locks - some level of synchronization between threads is needed to avoid undefined behaviour. But with the use of modern C++ and a good understanding of concurrent computing, we can reduce locking and achieve drastically better performance than we might get with simple mutex usage.
 
 ### Optimizations Overview
 
@@ -25,7 +25,7 @@ Below is a breakdown of the sequential improvements implemented on top of each i
 
 #### [Fifo](./fifo.hpp)
 
-A simple FIFO queue.
+A simple FIFO circular queue.
 *NOT* suitable for SPSC multithreaded use as there's a likely possibility
 of data-races when `pop()`ing or `push()`ing. This class is used as an example
 implementation of a FIFO data structure to build our SPSC FIFOs on top of.
@@ -82,15 +82,21 @@ atleast the size of our cache line. This way only a single one of our variables 
 a cache line, preventing other variables from being inadvertently invalidated.
 
 <i>See: [False Sharing (Wikipedia)](https://en.wikipedia.org/wiki/False_sharing)</i><br>
-<i>See also: [Video: False Sharing in C++ (YouTube)](https://www.youtube.com/watch?v=O0HCGOzFLm0)</i>
+<i>See also: [Video: False Sharing in C++ (YouTube)](https://www.youtube.com/watch?v=O0HCGOzFLm0)</i><br>
+<i>See also: [alignas specifier (C++ reference)](https://en.cppreference.com/w/cpp/language/alignas)</i>
 
 #### [SpscFifo2](./spsc_fifo_2.hpp)
 
-to-do
+Another improvement we can make to our implementation - on top of the previous improvements - is to cache our position-keeping variables. Each thread now has a copy of the variable which it would usually have to acquire
+from the other other thread. This copy is only ever accessed by the thread in question, and so it doesn't need
+to be atomic. Fo example, there's now a copy of the `pop_pos_` variable - `pop_pos_cached_` - which the Producer
+thread will use in `push()`es.
 
-#### [SpscFifo3](./spsc_fifo_3.hpp)
+Now, instead of `load()`ing the `pop_pos_` variable every time the Producer makes a `push()`, the Producer uses
+the cached variable to check if the queue is full. If it is, only then does the Producer thread acquire the 'real'
+variable and re-cache it. It can then check again if the queue is definitely full. Similarly, the Consumer thread does the same thing with `push()` with the `push_pos_` variable.
 
-to-do
+As before, we also must make sure that these two new variables exists on their own cache line, and so they are aligned in the same way as the original shared variables.
 
 ### Benchmarks
 
@@ -98,9 +104,8 @@ Built and run on Windows 11 | Windows Subsystem for Linux 2, g++12 (`-std=c++20,
 
 Queue item type = `std::int64_t`
 
-| Class | Operations/sec |
-| ------------- | ------------- |
-| SpscFifo0 | 5,932,375 |
-| SpscFifo1 | 55,924,026 |
-| SpscFifo2 | to-do |
-| SpscFifo3 | to-do |
+| Class     | Operations/sec |
+| --------- | -------------- |
+| SpscFifo0 | 5,932,375      |
+| SpscFifo1 | 55,924,026     |
+| SpscFifo2 | 160,280,425    |
