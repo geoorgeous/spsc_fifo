@@ -73,7 +73,7 @@ care about synchronizating the order of operations. For this we specify the
 The second improvement present in `SpscFifo1` is a reduction in false-sharing.
 In short, false-sharing occurs when a thread <i>t1</i> alters a variable <i>v1</i> which shares a cache
 line with another variable <i>v2</i> that's being accessed by another thread <i>t2</i>. Even though there
-was no alteration to <i>v2</i>, <i>t2</i> is still forced to reload its cache line. Thus, it would appear
+was no alteration to <i>v2</i>, <i>t2</i> is still forced to reload the cache line. Thus, it would appear
 to the programmer that one thread has inadvertently interrupted the other.
 
 Though the consequences of this surprising side-effect are pretty dire in terms of performance, the
@@ -87,9 +87,11 @@ a cache line, preventing other variables from being inadvertently invalidated.
 
 #### [SpscFifo2](./spsc_fifo_2.hpp)
 
+A thread-safe Single-Consumer, Single-Producer circular FIFO queue with optimized inter-thread synchronization, false-sharing-avoidance, and cached position variables.
+
 Another improvement we can make to our implementation - on top of the previous improvements - is to cache our position-keeping variables. Each thread now has a copy of the variable which it would usually have to acquire
 from the other other thread. This copy is only ever accessed by the thread in question, and so it doesn't need
-to be atomic. Fo example, there's now a copy of the `pop_pos_` variable - `pop_pos_cached_` - which the Producer
+to be atomic. For example, there's now a copy of the `pop_pos_` variable - `pop_pos_cached_` - which the Producer
 thread will use in `push()`es.
 
 Now, instead of `load()`ing the `pop_pos_` variable every time the Producer makes a `push()`, the Producer uses
