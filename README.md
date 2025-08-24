@@ -111,3 +111,5 @@ Queue item type = `std::int64_t`
 | SpscFifo0 | 5,932,375      |
 | SpscFifo1 | 55,924,026     |
 | SpscFifo2 | 160,280,425    |
+
+*Note (24-08-2024): I'd like to come back to this project at some point. I would especially like to come back and run some more profiles on different environments, using different queue items.*
